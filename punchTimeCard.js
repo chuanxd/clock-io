@@ -1,107 +1,33 @@
 const argv = require('minimist')(process.argv.slice(2), { 
     boolean: 'observe',
     default: { observe: false }
-});
-const ora = require('ora');
-const { chromium } = require('playwright');
-
-const PunchType = {
-    in: "in",
-    out: "out"
-};
+})
+const ora = require('ora')
+const { chromium } = require('playwright')
 
 (async () => {
-    var spinner = ora('Processing......').start();
+    var spinner = ora('Processing......').start()
     const browser = await chromium.launch({
-        channel: "chrome",
+        channel: 'chrome',
         headless: !argv.observe // if dev -> set false
-    });
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.goto("https://cloud.nueip.com/login");
+    })
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto("https://cloud.nueip.com/login")
     // Switch lang
-    spinner.text = "Login now......";
-    await page.click("div .lang-dropdown");
-    await page.click("id=en");
+    spinner.text = 'Login now......'
+    await page.click("div .lang-dropdown")
+    await page.click("id=en")
     // Login
     await page.fill("id=dept_input", "nextdrive");
     await page.fill("id=username_input", argv.id);
     await page.fill("id=password-input", argv.password);
-    await page.click("id=login-button");
-    spinner.succeed("Login success");
+    await page.click("id=login-button")
+    spinner.succeed("Login success")
     // Set seaching time
-    spinner = ora("Peparing to punch card......").start();
-    await page.goto("https://cloud.nueip.com/attendance_record");
-    const currentYear = new Date().getFullYear();
-    const lastMonth = new Date().getMonth(); // 0-based
-    const lastMonthDay = new Date(currentYear, lastMonth, 0);
-    await page.evaluate(() => document.getElementById("date_start").value = "");
-    await page.fill("id=date_start", `${currentYear-1}-01-01`);
-    await page.evaluate(() => document.getElementById("date_end").value = "");
-    await page.fill("id=date_end", `${currentYear}-${lastMonth}-${lastMonthDay}`);
-    await page.click("id=filter");
-    // Prepare results
-    await page.selectOption("select[name='table_content_length']", "100");
-    await page.fill("[placeholder='Search by keywords']", "Absent");
-    await page.click("text=Attendance Status"); // click to set acc order
-    spinner.succeed("Ready to work");
-    // Punch in/out
-    spinner = ora("Starting punch in......").start();
-    await punchTimeCard(page, PunchType.in, function(times) {
-        spinner.succeed(`Punch in finished (${times} times)`);
-    });
-    spinner = ora("Starting punch out......").start();
-    await punchTimeCard(page, PunchType.out, function(times) {
-        spinner.succeed(`Punch out finished (${times} times)`);
-    });
-    // Close
-    spinner = ora("Closing......").start();
-    await context.close();
-    await browser.close();
-    spinner.succeed("QUEST COMPLETE");
-})();
-
-// MARK: - Functions
-
-/**
- * @param {Page} page The page object
- */
-async function getIsLeave(page) {
-    const cuurTr = await page.$(`//tr[contains(@class, 'odd')][1]`)
-    const cuurTrClass = await page.evaluate(el => el.getAttribute('class'), cuurTr);
-    return `${cuurTrClass}`.includes('bg_color')
-}
-
-/**
- * @param {Page} page The page object
- * @param {PunchType} punchType The type of punch
- */
-async function punchTimeCard(page, punchType, callback) {
-    var isIn = (punchType == PunchType.in)
-    if (!isIn) { await page.click("text=Missed punch"); }
-  
-    var times = 0
-    var add = await page.$('#add')
-    while (add) {
-        if (isIn) {
-            const isLeave = await getIsLeave(page);
-            if (isLeave) { break; }
-        }
-
-        ++times;
-        try {
-            await add.click()
-            await page.check(isIn ? "id=clockinSection" : "id=clockoutSection");
-            await page.selectOption("#correctionTime >> select[name='hour']", isIn ? "09" : "18");
-            await page.fill("input:near(#correctionCount)", "REMARK");
-            await page.click("text=Confirm");
-            if (isIn) { // prevent to click stun
-                const close = await page.$("id=close");
-                if (close) { await close.click(); }
-            }
-        } catch (e) {
-            add = await page.$('#add')
-        }
-    }
-    callback(times)
-}
+    spinner = ora("Peparing to punch card......").start()
+    await page.goto("https://portal.nueip.com/home")
+    const CLOCK_IN_SELECTOR = '#view-gridlayout > div:nth-child(4) > div.vue-grid-item.por-punch-clock.cssTransforms.grid-card > div > div.grid-card__content > div > div.por-punch-clock__content--button > div > div:nth-child(1) > button'
+    await page.click(CLOCK_IN_SELECTOR)
+    spinner.succeed("Ready to work")
+})()
